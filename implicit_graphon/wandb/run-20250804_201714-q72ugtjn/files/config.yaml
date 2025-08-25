@@ -1,0 +1,30 @@
+_wandb:
+    value:
+        cli_version: 0.21.0
+        e:
+            s9546l9qurpwxnt3ppgzuo2nmywp45t4:
+                codePath: implicit_graphon/main.py
+                codePathLocal: main.py
+                email: s.berfininal@gmail.com
+                executable: /Users/berfininal/miniconda3/envs/env/bin/python
+                git:
+                    commit: 5ac3a34c9888f37197b38c73abb6abb5297aa839
+                    remote: https://github.com/sb-inal/ML-proteins.git
+                host: Berfins-MacBook-Pro.local
+                os: macOS-15.5-arm64-arm-64bit-Mach-O
+                program: /Users/berfininal/Documents/ML-proteins/implicit_graphon/main.py
+                python: CPython 3.13.1
+                root: /Users/berfininal/Documents/ML-proteins/implicit_graphon
+                startedAt: "2025-08-04T18:17:14.631174Z"
+                writerId: s9546l9qurpwxnt3ppgzuo2nmywp45t4
+        m: []
+        python_version: 3.13.1
+        t:
+            "1":
+                - 1
+            "2":
+                - 1
+            "4": 3.13.1
+            "5": 0.21.0
+            "12": 0.21.0
+            "13": darwin-arm64

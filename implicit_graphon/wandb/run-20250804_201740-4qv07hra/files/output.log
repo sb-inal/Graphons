@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/Users/berfininal/Documents/ML-proteins/implicit_graphon/main.py", line 239, in <module>
+    graphs_ = full_pipeline(dir, frames, ks=ks, k=k, n_trials=10,
+                            extract_trajectory=False,
+                            generate_graphs=False,
+                            dataset_gen=True)
+  File "/Users/berfininal/Documents/ML-proteins/implicit_graphon/main.py", line 216, in full_pipeline
+    dataset = generate_dataset(f"{data_dir_}", frames=frames, k=k, n_trials=n_trials)
+  File "/Users/berfininal/Documents/ML-proteins/implicit_graphon/main.py", line 165, in generate_dataset
+    raise FileNotFoundError("Missing {path}")
+FileNotFoundError: Missing {path}

@@ -1,0 +1,46 @@
+_wandb:
+    value:
+        cli_version: 0.21.0
+        e:
+            s1yykrct7rcdkaddc5k0zxpuz6o20x6t:
+                apple:
+                    ecpuCores: 4
+                    gpuCores: 20
+                    memoryGb: 24
+                    name: Apple M4 Pro
+                    pcpuCores: 10
+                    ramTotalBytes: "25769803776"
+                    swapTotalBytes: "2147483648"
+                codePath: main.py
+                codePathLocal: main.py
+                cpu_count: 14
+                cpu_count_logical: 14
+                disk:
+                    /:
+                        total: "994662584320"
+                        used: "277014122496"
+                email: s.berfininal@gmail.com
+                executable: /Users/berfininal/miniconda3/envs/env/bin/python
+                git:
+                    commit: 5ac3a34c9888f37197b38c73abb6abb5297aa839
+                    remote: https://github.com/sb-inal/ML-proteins.git
+                host: mac.wurdmz.nl
+                memory:
+                    total: "25769803776"
+                os: macOS-15.5-arm64-arm-64bit-Mach-O
+                program: /Users/berfininal/Documents/ML-proteins/main.py
+                python: CPython 3.13.1
+                root: /Users/berfininal/Documents/ML-proteins
+                startedAt: "2025-08-01T07:23:02.465893Z"
+                writerId: s1yykrct7rcdkaddc5k0zxpuz6o20x6t
+        m: []
+        python_version: 3.13.1
+        t:
+            "1":
+                - 1
+            "2":
+                - 1
+            "4": 3.13.1
+            "5": 0.21.0
+            "12": 0.21.0
+            "13": darwin-arm64
