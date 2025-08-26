@@ -1,0 +1,34 @@
+{
+	"folders": [
+		{
+			"name": "ML-proteins",
+			"path": "../.."
+		},
+		{
+			"name": "MDR_00004293",
+			"path": "../../../../Downloads/MDR_00004293"
+		},
+		{
+			"path": "../../../../Downloads/MDR_00004022"
+		},
+		{
+			"path": "../../../../Downloads/MDR_00002630"
+		},
+		{
+			"path": "../../../../Downloads/MDR_00002771"
+		},
+		{
+			"path": "../../../../Downloads/MDR_00002806"
+		},
+		{
+			"path": "../../../../Downloads/MDR_00003013"
+		},
+		{
+			"path": "../../../../Downloads/MDR_00003422"
+		},
+		{
+			"path": "../../../../Downloads/MDR_00004011"
+		}
+	],
+	"settings": {}
+}

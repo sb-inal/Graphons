@@ -1,0 +1,7 @@
+torch>=1.7
+torch_geometric>=2.1.0
+networkx>=2.8.4
+pot>=0.8.2
+cython>=0.29.32
+joblib==0.15.1
+einops>=0.6.0
