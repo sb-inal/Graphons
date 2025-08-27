@@ -541,7 +541,7 @@ def main(prog_args):
 
 if __name__ == '__main__':
 
-    gnn_types = ['gin', 'gconvgru', 'gconvlstm', 'chebnet']
+    gnn_types = ['gconvgru', 'gconvlstm', 'chebnet'] #'gin',
     latent_dims = [2, 4, 8, 16, 128]
 
     for gnn_type in gnn_types:
