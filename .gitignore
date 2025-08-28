@@ -25,7 +25,7 @@ output.png
 *.ckpt
 *.h5
 
-
+implicit_graphon/MD_data/
 minf/
 molsetrep/
 
