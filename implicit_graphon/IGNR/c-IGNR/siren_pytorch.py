@@ -44,7 +44,6 @@ class Siren(nn.Module):
         self.weight = nn.Parameter(weight)
         self.bias = nn.Parameter(bias) if use_bias else None
 
-       
         if activation=='sine':
             self.activation=Sine(w0)
         elif activation=='relu':
@@ -111,6 +110,7 @@ class SirenNet(nn.Module):
 
             if exists(mod):
                 x = x*rearrange(mod, 'd -> () d')   
+                
         return self.last_layer(x)
 
 # modulatory feed forward
@@ -139,6 +139,7 @@ class Modulator(nn.Module):
             x = torch.cat((x, z))
 
         return tuple(hiddens)
+
 
 class SirenWrapper(nn.Module):
     def __init__(self, net, image_width, image_height, latent_dim = None):

@@ -49,7 +49,6 @@ class cIGNR(nn.Module):
     def __init__(self, net, input_card, emb_dim, latent_dim, num_layer, gnn_layers, gnn_type='gin', global_pool='mean', JK='last', drop_ratio=0.,
                 device="cpu",flag_emb=1):
         '''
-
         Encode each input graph into a latent code z of dimension [latent_dim]; 
         z is used to condition the training of the MLP function f_theta (mapping R2->[0,1])
 
@@ -64,7 +63,6 @@ class cIGNR(nn.Module):
         global_pool: global pooling to obtain the final embedding
         JK:  {last, concate, sum, max} to aggregate node representation from each layers
         flag_emb: whether to use initial embedding
-        
         '''
         super(cIGNR, self).__init__()
 
@@ -91,19 +89,17 @@ class cIGNR(nn.Module):
         self.gnns = torch.nn.ModuleList()
         for layer in range(num_layer):
             if gnn_type== "gin":
-
-                self.gnns.append(GIN_Conv(self.gnn_layers[layer], self.gnn_layers[layer+1]))
-            
+                self.gnns.append(GIN_Conv(self.gnn_layers[layer], self.gnn_layers[layer+1]))          
             elif gnn_type== "gcn":
                 self.gnns.append(GCNConv(emb_dim, emb_dim))
             elif gnn_type=="graphsage":
                 self.gnns.append(SAGE_Conv(emb_dim, emb_dim))
             elif gnn_type == 'gconvgru':
-                self.gnns.append(GConvGRU(self.gnn_layers[layer], self.gnn_layers[layer+1], K=3))
+                self.gnns.append(GConvGRU(self.gnn_layers[layer], self.gnn_layers[layer+1], K=4))
             elif gnn_type=='gconvlstm':
-                self.gnns.append(GConvLSTM(self.gnn_layers[layer], self.gnn_layers[layer+1], K=3))
+                self.gnns.append(GConvLSTM(self.gnn_layers[layer], self.gnn_layers[layer+1], K=4))
             elif gnn_type =='chebnet':
-                self.gnns.append(ChebConv(self.gnn_layers[layer], self.gnn_layers[layer+1], K=3))
+                self.gnns.append(ChebConv(self.gnn_layers[layer], self.gnn_layers[layer+1], K=4))
             elif gnn_type == 'srgnn':
                 self.gnns = SRGNNClassifier(n_hidden_sets=2, n_elements=2, in_channels=9, num_layers=3,
                                             in_edge_channels=0, n_hidden_channels=[2,2], set_layer="transformer")
@@ -154,8 +150,6 @@ class cIGNR(nn.Module):
 
             print("################### HELLO ################")
             graph_rep = self.gnns(x)
-
-
 
         else:
             if self.flag_emb==1:
@@ -221,14 +215,14 @@ class cIGNR(nn.Module):
         '''
         Given latent code z from an input graph, use decode sample to sample a MxM reconstructed graph adjacency matrix from 
         f_theta(z,xx,yy)
-
         '''
 
         x = (torch.arange(M)+(1/2))/M
         y = (torch.arange(M)+(1/2))/M
-        xx,yy = torch.meshgrid(x,y)#,indexing='ij')
-        mgrid=torch.stack([xx,yy],dim=-1)
-        mgrid=rearrange(mgrid, 'h w c -> (h w) c')  
+        xx,yy = torch.meshgrid(x,y) #, indexing='ij')
+        mgrid = torch.stack([xx,yy],dim=-1)
+        
+        mgrid = rearrange(mgrid, 'h w c -> (h w) c')  
 
         mods_tmp  = self.modulator(z) 
         C_recon_tmp = self.net(mgrid.to(self.device), mods_tmp)
@@ -239,6 +233,7 @@ class cIGNR(nn.Module):
         C_recon_tmp = C_recon_tmp+torch.transpose(C_recon_tmp,0,1)
 
         return C_recon_tmp
+
 
 
     def decode(self, z, C_input, M, batch):
@@ -272,25 +267,60 @@ class cIGNR(nn.Module):
                 y = (torch.arange(M)+(1/2))/M
 
 
+
             xx,yy = torch.meshgrid(x, y) #,indexing='ij')
             mgrid = torch.stack([xx, yy],dim=-1)
-            mgrid = rearrange(mgrid, 'h w c -> (h w) c') 
+            mgrid = rearrange(mgrid, 'h w c -> (h w) c')    # [74529, 2]
+
+
+
+            print(f"MGRID SHAPE : {mgrid}")
+
+
 
             z_tmp     = z[i_b,:] # n_dict 
             mods_tmp  = self.modulator(z_tmp) 
             # print(f"Modulator output : {mods_tmp[0].shape}")
-            C_recon_tmp = self.net(mgrid.to(self.device), mods_tmp)   # sirenNet... 
+            C_recon_tmp = self.net(mgrid.to(self.device), mods_tmp)   # sirenNet...    [74529, 1]
+
+
+            #print(f"C_RECON_TEMP.shape = {C_recon_tmp.shape}")
 
             tmp_M = len(x)
-            C_recon_tmp = torch.squeeze(rearrange(C_recon_tmp, '(h w) c -> h w c', h = tmp_M, w = tmp_M))
+            C_recon_tmp = torch.squeeze(rearrange(C_recon_tmp, '(h w) c -> h w c', h = tmp_M, w = tmp_M)) # [273, 273]
+
+            print(f"C_RECON_TMP : {C_recon_tmp}")
+            print()
+
+            #print(f"C_RECON_TMP_AFTER : {C_recon_tmp}")
+            #print(f"C_RECON_TEMP.shape_AFTER = {C_recon_tmp.shape}")
+
 
             # when training only half plane
             C_recon_tmp = torch.triu(C_recon_tmp, diagonal=1)
-            C_recon_tmp = C_recon_tmp+torch.transpose(C_recon_tmp, 0, 1)
+            C_recon_tmp = C_recon_tmp+torch.transpose(C_recon_tmp, 0, 1)   # [273, 273]
+
+
+            #print(f"C_RECON_TMP_AFTER_AFTER : {C_recon_tmp}")
+            #print(f"C_RECON_TEMP.shape_AFTER_AFTER = {C_recon_tmp.shape}")
+
+            print(f"Adjacency_matrix : {C_recon_tmp}")
+            binary_matrix = (C_recon_tmp> 0.5).int()
+
+            print(f"binay.shape {binary_matrix.shape}")
+            print(f"C_recon_temp.shape = {C_recon_tmp.shape}")
+
+            print(f"Sum diff = {torch.sum(torch.abs(C_input - binary_matrix))}")
+
 
             # input measure
             h_input = ot.unif(Nb).clone().detach()
             C_input = C_input.to(device)
+
+
+            print(f"C_input : {C_input}")
+
+
             loss_tmp = gromov_wasserstein2(C_recon_tmp,C_input[i_b,:Nb,:Nb],h_recon.to(torch.float32).to(device),h_input.to(torch.float32).to(device))
             
             loss_b.append(loss_tmp)
@@ -299,9 +329,8 @@ class cIGNR(nn.Module):
         loss_b = torch.stack(loss_b)
         loss   = torch.mean(loss_b)
 
-        #print('here')
-        #print(loss)
         return loss,z,C_recon_list
+
 
 
     def sample(self,x,edge_index,batch,M):
@@ -329,7 +358,6 @@ class cIGNR(nn.Module):
         
         z = self.encode(x, edge_index, batch)
 
-        loss,z,C_recon_list= self.decode(z.to(device), C_input.to(device), M, batch.to(device))
-        
-        return loss,z,C_recon_list
-    
+        loss, z, C_recon_list = self.decode(z.to(device), C_input.to(device), M, batch.to(device))
+
+        return loss, z, C_recon_list

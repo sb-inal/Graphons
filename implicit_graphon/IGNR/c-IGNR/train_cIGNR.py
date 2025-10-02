@@ -63,6 +63,9 @@ def test(args, test_loader, model):
             
             if args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES' or args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES':
                 x = data.x.float().to(args.device)
+            
+            elif args.dataset == 'd2r_knn_4' or args.dataset == "d2r_knn_20" or args.dataset == "d2r_knn_4_unaligned" or args.dataset == "d2r_knn_20_unaligned":
+                x = data.x.float().to(args.device)
             else:
                 x = data.x.to(torch.int64).to(args.device)      
 
@@ -109,7 +112,7 @@ def train(args, train_loader, model, test_loader):
     best_model = None
     #best_C_recon_test = []
 
-    best_acc = 0.
+    best_acc = 0.0
     acc_list = []
     
     since = time.time()
@@ -125,12 +128,16 @@ def train(args, train_loader, model, test_loader):
                 print(f"Data : {data}")
 
                 print(f"Data.shape : {data.x.shape}")
-                
-                if args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES' or args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES' :
+                if args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES' or args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES':
+                    x = data.x.float().to(args.device)
+                elif args.dataset == "d2r_knn_4" or args.dataset == "d2r_knn_20" or args.dataset == "d2r_knn_4_unaligned" or args.dataset == "d2r_knn_20_unaligned":
                     x = data.x.float().to(args.device)
                 else:
                     x = data.x.to(torch.int64).to(args.device)
                 edge_index = data.edge_index.to(torch.int64).to(args.device)
+
+                edge_index = edge_index.long()
+
                 batch = data.batch.to(torch.int64).to(args.device)
                 C_input = to_dense_adj(edge_index, batch=batch)
 
@@ -178,7 +185,7 @@ def train(args, train_loader, model, test_loader):
 
     # save trained model and loss here
     print('Finished Training')
-    saved_path = "/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/c-IGNR/Result/checkpoints/"+ f'_checkpoint_dataset_{args.dataset}_{args.gnn_type}_dim_{args.latent_dim}_knn_{args.knn}.pt'
+    saved_path = "/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/c-IGNR/Result/checkpoints/"+ f'checkpoint_dataset_{args.dataset}_{args.gnn_type}_dim_{args.latent_dim}_knn_{args.knn}.pt'
     torch.save({'epoch': epoch, 
         'batch': batch_idx, 
         'model_state_dict': best_model.state_dict(),
@@ -462,7 +469,6 @@ def main(prog_args):
         train_dataset = data[:n_train]
         test_dataset = data[n_train:]
 
-
     elif prog_args.dataset == 'bbbp':
         dataset = MoleculeNet(root='data/', name='BBBP')
 
@@ -479,7 +485,71 @@ def main(prog_args):
         max_atoms = max(atom_counts)
 
         n_card = max_atoms
-            
+
+    elif prog_args.dataset == 'd2r_knn_4':
+        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_4_dataset.pkl",'rb') as f:  
+            data = pickle.load(f)
+
+        n_card = 3
+        # First 2000 samples only for faster experiments
+        # data = data[:2000]
+
+        n_sample = len(data)
+
+        n_train = round(n_sample*.9)
+        print(f"n_sample = {n_sample}") 
+
+        train_dataset = data[:n_train]
+        test_dataset = data[n_train:]       
+        
+    elif prog_args.dataset == 'd2r_knn_20':
+        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_20_dataset.pkl",'rb') as f:  
+            data = pickle.load(f)
+
+        n_card = 3
+        # First 2000 samples only for faster experiments
+        # data = data[:2000]
+
+        n_sample = len(data)
+
+        n_train = round(n_sample*.9)
+        print(f"n_sample = {n_sample}") 
+
+        train_dataset = data[:n_train]
+        test_dataset = data[n_train:]      
+    
+    elif prog_args.dataset == 'd2r_knn_4_unaligned':
+        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_4_dataset_unaligned.pkl",'rb') as f:  
+            data = pickle.load(f)
+
+        n_card = 3
+        # First 2000 samples only for faster experiments
+        # data = data[:2000]
+
+        n_sample = len(data)
+
+        n_train = round(n_sample*.9)
+        print(f"n_sample = {n_sample}") 
+
+        train_dataset = data[:n_train]
+        test_dataset = data[n_train:]  
+    
+    elif prog_args.dataset == "d2r_knn_20_unaligned":
+        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_20_dataset_unaligned.pkl",'rb') as f:  
+            data = pickle.load(f)
+
+        n_card = 3
+        # First 2000 samples only for faster experiments
+        # data = data[:2000]
+
+        n_sample = len(data)
+
+        n_train = round(n_sample*.9)
+        print(f"n_sample = {n_sample}") 
+
+        train_dataset = data[:n_train]
+        test_dataset = data[n_train:]  
+
     else: # For learning parameterized graphon on synthetic data
 
         with open(ppath+'/Data/'+prog_args.dataset+'.pkl','rb') as f:  
@@ -503,7 +573,7 @@ def main(prog_args):
 
 
     print(prog_args.dataset)
-    train_loader = DataLoader(train_dataset, batch_size=prog_args.batch_size, shuffle=False, drop_last=True) # Data is pre-shuffled by fixed seed
+    train_loader = DataLoader(train_dataset, batch_size=prog_args.batch_size, shuffle=False) # Data is pre-shuffled by fixed seed
     test_loader  = DataLoader(test_dataset, batch_size=prog_args.batch_size, shuffle=False) # For evaluating and saving all embeddings
 
 
@@ -541,7 +611,7 @@ def main(prog_args):
 
 if __name__ == '__main__':
 
-    gnn_types = ['gconvgru', 'gconvlstm', 'chebnet'] #'gin',
+    gnn_types = ['chebnet', 'gin', 'gconvgru'] # ['gconvgru', 'gconvlstm', 'chebnet'] #'gin',
     latent_dims = [2, 4, 8, 16, 128]
 
     for gnn_type in gnn_types:
@@ -551,20 +621,22 @@ if __name__ == '__main__':
             prog_args.latent_dim = dim
 
             # prog_args.dataset = 'protein_dataset_k_25_frames_5_random_connections_ratio_0.2'
-            prog_args.dataset = 'protein_dataset_k_25_frames_5_RESIDUES'
+            prog_args.dataset = 'd2r_knn_20_unaligned'
             #'protein_dataset_k_25_frames_5_random_connections' # protein_dataset_k_25_frames_5' # protein_dataset_k_25_frames_5_random_connections
-            prog_args.n_epoch = 3
+            prog_args.n_epoch = 1
             prog_args.emb_dim = 2
             prog_args.batch_size = 10
-            prog_args.gnn_num_layers = 3
+            prog_args.gnn_num_layer = 3
 
             if prog_args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES' or prog_args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES':
                 prog_args.gnn_layers = [20, 2, 2, dim]
             elif prog_args.dataset == "protein_dataset_k_5_frames_5_RESIDUES_COORDINATES" or prog_args.dataset == "protein_dataset_k_25_frames_5_RESIDUES_COORDINATES":
                prog_args.gnn_layers = [23, 2, 2, dim]
+            elif prog_args.dataset == "d2r_knn_4" or prog_args.dataset == "d2r_knn_20" or prog_args.dataset == "d2r_knn_4_unaligned" or prog_args.dataset == "d2r_knn_20_unaligned":
+                prog_args.gnn_layers = [3, 2, 2, dim]
 
             prog_args.flag_emb = 0
-            prog_args.knn = 25
+            prog_args.knn = 20
 
 
             prog_args.lr = 0.001 # 0.01

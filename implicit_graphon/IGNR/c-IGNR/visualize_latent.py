@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-from model_cIGNR import *
+from model_cIGNR_two_heads import *
 import pickle
 
 from data import *
@@ -126,9 +126,86 @@ def main_visualize(gnn_type, latent_dim, path, gnn_layers, dim_reduction = 'pca'
         test_dataset = data[n_train:]  
         batch_size = 20
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)   
-    else:
+    
+    elif dataset == 'd2r_knn_4':
+        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_4_dataset.pkl",'rb') as f:  
+            data = pickle.load(f)
 
-        train_loader, test_loader, n_card = get_protein_data(dataset = dataset)
+        n_card = 3
+        # First 2000 samples only for faster experiments
+        data = data[:4000]
+
+        n_sample = len(data)
+
+        n_train = round(n_sample*.9)
+        print(f"n_sample = {n_sample}") 
+
+        train_dataset = data[:n_train]
+        test_dataset = data[n_train:]   
+
+        batch_size = 20
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)      
+    
+    elif dataset == 'd2r_knn_20':
+        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_20_dataset.pkl",'rb') as f:  
+            data = pickle.load(f)
+
+        n_card = 3
+        # First 2000 samples only for faster experiments
+        data = data[:4000]
+
+        n_sample = len(data)
+
+        n_train = round(n_sample*.9)
+        print(f"n_sample = {n_sample}") 
+
+        train_dataset = data[:n_train]
+        test_dataset = data[n_train:]   
+
+        batch_size = 20
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)    
+
+    elif dataset == 'd2r_knn_4_unaligned':
+        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_4_dataset_unaligned.pkl",'rb') as f:  
+            data = pickle.load(f)
+
+        n_card = 3
+        # First 2000 samples only for faster experiments
+        data = data[:2000]
+
+        n_sample = len(data)
+
+        n_train = round(n_sample*.9)
+        print(f"n_sample = {n_sample}") 
+
+        train_dataset = data[:n_train]
+        test_dataset = data[n_train:]   
+
+        batch_size = 20
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)    
+
+    elif dataset == 'd2r_knn_20_unaligned':
+        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_20_dataset_unaligned.pkl",'rb') as f:  
+            data = pickle.load(f)
+
+        n_card = 3
+        # First 2000 samples only for faster experiments
+        data = data[:2000]
+
+        n_sample = len(data)
+
+        n_train = round(n_sample*.9)
+        print(f"n_sample = {n_sample}") 
+
+        train_dataset = data[:n_train]
+        test_dataset = data[n_train:]   
+
+        batch_size = 20
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)    
+    
+    #else:
+
+    #    train_loader, test_loader, n_card = get_protein_data(dataset = dataset)
 
     snet = SirenNet(
         dim_in = 2, # input [x,y] coordinate
@@ -139,7 +216,18 @@ def main_visualize(gnn_type, latent_dim, path, gnn_layers, dim_reduction = 'pca'
         w0_initial = 30.,
         activation = mlp_act)
     
-    model = cIGNR(net=snet, input_card=n_card, emb_dim=emb_dim, latent_dim=latent_dim, num_layer=gnn_num_layer, device=device, flag_emb=flag_emb, gnn_type= gnn_type, gnn_layers=gnn_layers)
+
+    snet_coords = SirenNet(
+        dim_in = 2, # input [x,y] coordinate
+        dim_hidden = mlp_dim_hidden,
+        dim_out = 3, # atom coordinates in R^3
+        num_layers = mlp_num_layer, # f_theta number of layers
+        final_activation = 'sigmoid',
+        w0_initial = 30.,
+        activation = mlp_act
+        )
+    
+    model = cIGNR_(net_adj=snet, net_coords=snet_coords, input_card=n_card, emb_dim=emb_dim, latent_dim=latent_dim, num_layer=gnn_num_layer, device=device, flag_emb=flag_emb, gnn_type= gnn_type, gnn_layers=gnn_layers)
 
     checkpoint = torch.load(path, map_location = 'cpu', weights_only = False)
     
@@ -156,13 +244,17 @@ def main_visualize(gnn_type, latent_dim, path, gnn_layers, dim_reduction = 'pca'
 
         if dataset == 'protein_dataset_k_5_frames_5_RESIDUES' or dataset == 'protein_dataset_k_5_frames_5_RESIDUES_COORDINATES' or dataset == 'protein_dataset_k_25_frames_5_RESIDUES_COORDINATES' or dataset == 'protein_dataset_k_25_frames_5_RESIDUES':
             x = data.x.float().to(device)
+        elif dataset == "d2r_knn_4" or dataset == "d2r_knn_20" or dataset == "d2r_knn_4_unaligned" or dataset == "d2r_knn_20_unaligned":
+            x = data.x.float().to(device)
         else:
             x = data.x.to(torch.int64).to(device)             
 
         edge_index = data.edge_index.to(torch.int64).to(device)
+
+
         batch = data.batch.to(torch.int64)
 
-        z = model.encode(x, edge_index, batch.to(device))
+        z, node_representation = model.encode(x, edge_index, batch.to(device))
 
         all_zs.append(z.detach().cpu())
 
@@ -222,7 +314,7 @@ def main_visualize(gnn_type, latent_dim, path, gnn_layers, dim_reduction = 'pca'
     plt.grid(True)
     plt.tight_layout()
 
-    save_plot_path = f"/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/c-IGNR/Result/plots/_plot_{gnn_type}_dim_{latent_dim}_{dataset}_{dim_reduction}.png"
+    save_plot_path = f"/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/c-IGNR/Result/plots/two_head_plot_{gnn_type}_dim_{latent_dim}_{dataset}_{dim_reduction}.png"
 
     plt.savefig(save_plot_path, dpi=300) 
 
@@ -232,11 +324,33 @@ def main_visualize(gnn_type, latent_dim, path, gnn_layers, dim_reduction = 'pca'
 if __name__=='__main__':
     gnn_type =  'gin'
     latent_dim = 2
-    path = f"/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/c-IGNR/Result/checkpoints/_checkpoint_dataset_protein_dataset_k_5_frames_5_RESIDUES_COORDINATES_gin_dim_2_knn_5.pt"
+    path = f"/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/c-IGNR/Result/checkpoints/two_head_checkpoint_dataset_d2r_knn_4_unaligned_chebnet_dim_2_knn_4.pt"
     # path = "/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/c-IGNR/Result/00/checkpoint_latent_dim_2_gnn_gconvlstm.pt"
     gnn_layers = [23,2,2,latent_dim]
-    dim_reduction = 'tsne'
+    dim_reduction = 'pca'
+
+
+    gnn_type = 'chebnet'
+    latent_dim = 2
+
+    # prog_args.dataset = 'protein_dataset_k_25_frames_5_random_connections_ratio_0.2'
+    dataset = 'd2r_knn_4_unaligned'
+    #'protein_dataset_k_25_frames_5_random_connections' # protein_dataset_k_25_frames_5' # protein_dataset_k_25_frames_5_random_connections
+    n_epoch = 1
+    emb_dim = 2
+    batch_size = 10
+    gnn_num_layer = 3
+
+    if dataset == "d2r_knn_4" or dataset == "d2r_knn_20" or dataset == "d2r_knn_4_unaligned" or dataset == "d2r_knn_20_unaligned":
+        gnn_layers = [3, 2, 2, latent_dim]
+    
+
+    flag_emb = 0
+    knn = 4
+
+
+    lr = 0.01 # 0.01
 
     main_visualize(gnn_type, latent_dim=latent_dim, path=path, gnn_layers=gnn_layers,
-                   dim_reduction=dim_reduction, dataset='protein_dataset_k_5_frames_5_RESIDUES_COORDINATES')
+                   dim_reduction=dim_reduction, dataset=dataset)
     

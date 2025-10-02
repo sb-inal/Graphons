@@ -1,0 +1,51 @@
+__pycache__/
+*.py[cod]
+*.so
+*.pyo
+.ipynb_checkpoints/
+
+
+.venv/
+venv/
+.env
+.conda/
+*.swp
+.DS_Store
+
+
+wandb/
+logs/
+Result/
+output.png
+
+
+*.pkl
+*.pt
+*.pth
+*.ckpt
+*.h5
+
+implicit_graphon/MD_data/
+minf/
+molsetrep/
+
+implicit_graphon/**/Result/
+implicit_graphon/**/plots/
+implicit_graphon/**/wandb/
+implicit_graphon/**/checkpoints*/
+implicit_graphon/**/checkpoint*.pt
+implicit_graphon/**/checkpoint*.pth
+implicit_graphon/**/checkpoint*.ckpt
+
+implicit_graphon/**/Data/
+implicit_graphon/**/MD_data/
+implicit_graphon/**/Pdbs/
+
+
+*.pt *.pth *.ckpt *.onnx *.npz *.npy *.pkl *.h5
+*.csv *.tsv *.parquet
+*.zip *.tar *.tar.gz *.7z
+
+
+__pycache__/ .ipynb_checkpoints/ .DS_Store
+EOF
