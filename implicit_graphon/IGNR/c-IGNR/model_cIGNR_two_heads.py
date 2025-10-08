@@ -17,10 +17,10 @@ from sklearn.model_selection import train_test_split
 
 from layers import GIN_Conv, SAGE_Conv
 
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from models_molsetrep.sr_gnn import *
-from metrics_molsetrep import *
+# from models_molsetrep.sr_gnn import *
+#from metrics_molsetrep import *
 
 import numpy as np
 
@@ -44,7 +44,7 @@ Reference:
 
 class CoordMLP(nn.Module):
 
-    def __init__(self, in_dim, hidden_dims = [48,36,24], dropout = 0.0):
+    def __init__(self, in_dim, hidden_dims = [8], dropout = 0.0):
         super().__init__()
         layers = []
         prev = in_dim
@@ -52,7 +52,7 @@ class CoordMLP(nn.Module):
         for h in hidden_dims:
             layers += [nn.Linear(prev, h)]
             layers += [nn.BatchNorm1d(h)]
-            layers += [nn.GELU()]
+            layers += [nn.LeakyReLU()]
 
             if dropout > 0:
                 layers += [nn.Dropout(dropout)]
@@ -75,7 +75,7 @@ class CoordMLP(nn.Module):
 
 class cIGNR_(nn.Module):
     def __init__(self, net_adj, net_coords, input_card, emb_dim, latent_dim, num_layer, gnn_layers, gnn_type='gin', global_pool='mean', JK='last', drop_ratio=0.,
-                device="cpu",flag_emb=1):
+                device=device,flag_emb=1):
         '''
         Encode each input graph into a latent code z of dimension [latent_dim]; 
         z is used to condition the training of the MLP function f_theta (mapping R2->[0,1])
@@ -164,7 +164,7 @@ class cIGNR_(nn.Module):
     
 
         #--- f_theta network set up---
-        self.net_adj = net_adj
+        self.net_adj = net_adj.to(device)
         self.net_coords = net_coords
         self.mlp_coords = CoordMLP(in_dim = latent_dim)
         #print('AE here')
@@ -175,7 +175,7 @@ class cIGNR_(nn.Module):
                 dim_in = latent_dim,
                 dim_hidden = net_adj.dim_hidden,
                 num_layers = net_adj.num_layers
-            )
+            ).to(device)
         
         self.modulator_coords = Modulator(
                 dim_in = latent_dim,
@@ -242,6 +242,9 @@ class cIGNR_(nn.Module):
             graph_rep = self.pool(node_representation, batch)
 
         # node_representation.  # torch.Size([2730, 2])
+
+        # normalize over node representation
+        node_representation = F.normalize(node_representation, p =2.0, dim = 1)
 
         # (old) reduce dimension and mapping graph_rep to z 
         # graph_rep = self.coef_linear(F.relu(graph_rep))
@@ -318,7 +321,7 @@ class cIGNR_(nn.Module):
             # print(f"MGRID SHAPE : {mgrid}")
 
             z_tmp     = z[i_b,:] # n_dict 
-            mods_tmp  = self.modulator(z_tmp) 
+            mods_tmp  = self.modulator(z_tmp)
             mods.append(mods_tmp)
             # print(f"Modulator output : {mods_tmp[0].shape}")
             C_recon_tmp = self.net_adj(mgrid.to(self.device), mods_tmp)   # sirenNet...    [74529, 1]
@@ -461,29 +464,10 @@ class cIGNR_(nn.Module):
         
         z_, node_representation = self.encode(x, edge_index, batch)
 
-        print(f"z_shape : {z_.shape}")
-
-
-
-        print(f"node_representation.shape : {node_representation.shape}")
-
         loss, z, C_recon_list, mods = self.decode(z_.to(device), C_input.to(device), M, batch.to(device))
         # loss_coords, z_coords = self.decode_coords(z_.to(device),C_input.to(device), x ,M, batch.to(device), mods)
 
         coords_pred = self.mlp_coords(node_representation.to(device))
-
-        """
-        print(f"node representation.shape : {node_representation.shape}")
-        print(f"z_.shape {z_.shape}")
-        print(f"x.shape : {x.shape}")
-        print(f"coords_pred.shape : {coords_pred.shape}")
-        print()
-        print(f"coords_pred : {coords_pred[0]}")
-        print(f"coords_pred : {coords_pred[1]}")
-        print(f"coords_pred : {coords_pred[274]}")
-        print()
-        """
-
 
         ## Normalize the coordinates
         mu = x.mean(dim =0)
@@ -491,10 +475,7 @@ class cIGNR_(nn.Module):
 
         #x = (x - mu)/sigma
         #coords_pred = (coords_pred - mu)/sigma
-        loss_coords = torch.nn.functional.mse_loss(coords_pred, x.to(device))
-
+        # loss_coords = torch.nn.functional.mse_loss(coords_pred, x.to(device))
         # loss_coords = torch.nn.functional.mse_loss(coords_pred, x.to(device))
 
-        print(f"Loss GW : {loss.item():.4f}, Loss coords : {loss_coords.item():.4f}")
-
-        return loss_coords,loss, z_, C_recon_list
+        return loss , coords_pred

@@ -148,7 +148,7 @@ class cIGNR(nn.Module):
     def encode(self, x, edge_index,  batch):
         if self.gnn_type == "srgnn":
 
-            print("################### HELLO ################")
+            # print("################### HELLO ################")
             graph_rep = self.gnns(x)
 
         else:

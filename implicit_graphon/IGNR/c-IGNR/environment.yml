@@ -1,0 +1,9 @@
+name: env
+channels:
+  - defaults
+dependencies:
+  - python
+  - pandas
+  - tqdm
+  - openblas
+prefix: /Users/berfininal/miniconda3/envs/env

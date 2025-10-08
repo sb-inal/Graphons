@@ -21,20 +21,17 @@ import cv2
 
 # --- Model ---
 from model_cIGNR_two_heads import cIGNR_
-
 from siren_pytorch import *
 
 from evaluation import *
 from visualize_latent import *
-
-from data import rGraphData_tg2,GraphData_tg
-from visualize_latent import *
+from data_ import get_dataset
 
 from sklearn.metrics import rand_score
 from sklearn.cluster import KMeans
 import time
 
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 import wandb
 wandb.login()
@@ -47,14 +44,12 @@ from torchjd import mtl_backward
 from torchjd.aggregation import UPGrad
 
 
-from utils import save_ca_pdb
+from utils import save_ca_pdb, lddt, tm_score, arg_parse
 
 
 '''
 Traning Function
 '''
-
-
 ################## Added by me (sbi) ####################
 def test(args, test_loader, model):
 
@@ -68,25 +63,27 @@ def test(args, test_loader, model):
         for batch_idx, data in enumerate(test_loader):
 
             # print(f"Data.shape : {data.x.shape}")
-            
-            if args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES' or args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES':
-                x = data.x.float().to(args.device)
-            
-            elif args.dataset == 'd2r_knn_4' or args.dataset == "d2r_knn_20" or args.dataset == "d2r_knn_4_unaligned" or args.dataset == "d2r_knn_20_unaligned":
-                x = data.x.float().to(args.device)
-            else:
-                x = data.x.to(torch.int64).to(args.device)      
+            x = data.x.float().to(args.device)
 
             edge_index = data.edge_index.to(torch.int64).to(args.device)
             batch = data.batch.to(torch.int64).to(args.device)
             C_input = to_dense_adj(edge_index, batch=batch)
 
-            # siren mlp
-            loss_coords, loss, z, C_recon_list = model(x, edge_index, batch, C_input, args.M)
-
-            loss_list.append(loss.item())
-            loss_coords_.append(loss_coords.item())
+            loss, coords_pred = model(x, edge_index, batch, C_input, args.M)        
+            loss_coords = torch.nn.functional.mse_loss(coords_pred, x.to(device))
             
+            print(f"Loss GW : {loss.item():.4f}, Loss coords : {loss_coords.item():.4f}")
+            total_loss = loss + loss_coords
+
+            loss_list.append(total_loss.item())
+            loss_coords_.append(loss_coords.item())
+
+
+            if batch_idx%20== 0 or batch_idx==76 :
+                path_pdb = f"/home/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/pdbs/true/test/mse_train_{prog_args.dataset}_{prog_args.gnn_type}_{prog_args.latent_dim}_{batch_idx}.pdb"
+                save_ca_pdb(coords_pred, path_pdb)
+                path_pdb_true = f"/home/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/pdbs/true/test/mse_train_{prog_args.dataset}_{prog_args.gnn_type}_{prog_args.latent_dim}_{batch_idx}.pdb"
+                save_ca_pdb(x, path_pdb_true)
 
             # run.log({"Test GW2 loss": loss_item})
             
@@ -106,17 +103,18 @@ def test(args, test_loader, model):
 def train(args, train_loader, model, test_loader):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    aggregator = UPGrad()
+    #aggregator = UPGrad()
+    batch_size = args.batch_size
 
     ids_in_optim = {id(p) for g in optimizer.param_groups for p in g['params']}
     missing = [n for n,p in model.mlp_coords.named_parameters() if id(p) not in ids_in_optim]
     print("Missing mlp_coords params in optimizer:", missing)  # should be []
 
 
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(
-        optimizer,
-        step_size=int(args.step_size),
-        gamma=float(args.gamma))
+    #lr_scheduler = torch.optim.lr_scheduler.StepLR(
+    #    optimizer,
+    #    step_size=int(args.step_size),
+    #    gamma=float(args.gamma))
     
 
     for i, param_group in enumerate(optimizer.param_groups):
@@ -127,38 +125,24 @@ def train(args, train_loader, model, test_loader):
 
     loss_list = []
     loss_list_batch = []
-
-
     tmp_list = []
-
 
     best_loss_batch  = np.inf
     best_model = None
-    #best_C_recon_test = []
 
     best_acc = 0.0
     acc_list = []
     
     since = time.time()
     with wandb.init(project = project, entity = "_thesis_", config = args) as run:
-        
         for epoch in range(args.n_epoch):
-
             model.train()
             
             loss_epoch = []
 
             for batch_idx, data in enumerate(train_loader):
-                print(f"batch_idx = : {batch_idx}")
-                print(f"Data : {data}")
 
-                print(f"Data.shape : {data.x.shape}")
-                if args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES' or args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES_COORDINATES' or args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES':
-                    x = data.x.float().to(args.device)
-                elif args.dataset == "d2r_knn_4" or args.dataset == "d2r_knn_20" or args.dataset == "d2r_knn_4_unaligned" or args.dataset == "d2r_knn_20_unaligned":
-                    x = data.x.float().to(args.device)
-                else:
-                    x = data.x.to(torch.int64).to(args.device)
+                x = data.x.float().to(args.device)
                 edge_index = data.edge_index.to(torch.int64).to(args.device)
 
                 edge_index = edge_index.long()
@@ -166,14 +150,14 @@ def train(args, train_loader, model, test_loader):
                 batch = data.batch.to(torch.int64).to(args.device)
                 C_input = to_dense_adj(edge_index, batch=batch)
 
-
                 # siren mlp
                 if args.gnn_type =='srgnn':
                     loss, z, C_recon_list  = model(x = data, edge_index = edge_index, batch = batch, C_input = C_input, M = args.M)
-                    # print(f"loss = {loss}")
                 else:
-                    loss_coords, loss, z, C_recon_list = model(x, edge_index, batch, C_input, args.M)
-                    total_loss = loss + 0.0001*loss_coords
+                    loss, coords_pred = model(x, edge_index, batch, C_input, args.M)        
+                    loss_coords = torch.nn.functional.mse_loss(coords_pred, x.to(device))
+                
+                    total_loss = loss + loss_coords
 
                 loss_list.append(total_loss)
                 total_loss.backward()
@@ -182,28 +166,39 @@ def train(args, train_loader, model, test_loader):
                 #print("mlp_coords grad means:", g)  # should be non-zero
 
 
+                if batch_idx%100==0 or batch_idx==688:
+                    path_pdb = f"/home/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/pdbs/predicted/train/mse_train_{prog_args.dataset}_{prog_args.gnn_type}_{prog_args.latent_dim}_{batch_idx}.pdb"
+                    save_ca_pdb(coords_pred, path_pdb)
+                    path_pdb_true = f"/home/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/pdbs/true/train/mse_train_{prog_args.dataset}_{prog_args.gnn_type}_{prog_args.latent_dim}_{batch_idx}.pdb"
+                    save_ca_pdb(x, path_pdb_true)
+
+                #### LDDT score 
+                N = 273
+                lddt_ = lddt(coords_pred.view(batch_size, N, 3), x.view(batch_size, N, 3))
+                tm_score_ = tm_score(x, coords_pred)
+
+
                 # mtl_backward(losses=loss, features = z, aggregator=aggregator)
                 optimizer.step()
-                lr_scheduler.step()
+                # lr_scheduler.step()
+                optimizer.zero_grad()
                 
                 #print("decoder2 grad mean:",
                 #sum((p.grad.abs().mean() for p in model.mlp_coords.parameters() if p.grad is not None)))
 
-                optimizer.zero_grad()
-
                 #loss_item = sum(loss).item()
                 run.log({"Training GW2 loss": loss.item()})
-                run.log({"Training Smooth_l1 loss": loss_coords.item()})
+                run.log({"Training MSE loss": loss_coords.item()})
                 run.log({"Training Total loss": total_loss.item()})
-                #loss_epoch.append(loss_item)
 
-                print(f'Epoch: {epoch:03d}, Batch: {batch_idx:03d}, Loss:{total_loss.item():.4f}')
+                run.log({"Training LDDT score": lddt_})
+                run.log({"Training TM-Score ": tm_score_})
 
-                # print(f'Epoch: {epoch:03d}, Batch: {batch_idx:03d}, Loss:{loss.item():.4f}')
+                print(f'Epoch: {epoch:03d}, Batch: {batch_idx:03d}, Loss:{total_loss.item():.4f}, Loss GW : {loss.item():.4f}, Loss coords : {loss_coords.item():.4f}')
 
             loss_batch = np.mean(loss_epoch) # this is not loss on test set, this is average training loss across batches
             loss_list_batch.append(np.round(loss_batch,3))
-            # z = get_emb(args,model,test_loader)
+
 
             if loss_batch<best_loss_batch:
                 best_loss_batch=loss_batch
@@ -219,12 +214,9 @@ def train(args, train_loader, model, test_loader):
     print('loss on per epoch:')
     print(loss_list_batch)
 
-    # print('acc per epoch:')
-    # print(acc_list)
-
     # save trained model and loss here
     print('Finished Training')
-    saved_path = "/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/c-IGNR/Result/checkpoints/"+ f'two_head_checkpoint_dataset_{args.dataset}_{args.gnn_type}_dim_{args.latent_dim}_knn_{args.knn}.pt'
+    saved_path = "/home/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/Result/checkpoints/"+ f'two_head_checkpoint_dataset_{args.dataset}_{args.gnn_type}_dim_{args.latent_dim}_knn_{args.knn}.pt'
     torch.save({'epoch': epoch, 
         'batch': batch_idx, 
         'model_state_dict': model.state_dict(),
@@ -248,79 +240,11 @@ def train(args, train_loader, model, test_loader):
 
 
 
-def arg_parse():
-    parser = argparse.ArgumentParser(description='GraphonAE arguments.')
-    io_parser = parser.add_mutually_exclusive_group(required=False)
-    io_parser.add_argument('--dataset', dest='dataset', 
-            help='Input dataset.')
-
-    ### Optimization parameter
-    parser.add_argument('--lr', dest='lr', type=float,
-            help='Learning rate.')
-    parser.add_argument('--step_size', dest='step_size', type=float,
-            help='Learning rate scheduler step size')
-    parser.add_argument('--gamma', dest='gamma', type=float,
-            help='Learning rate scheduler gamma')
-
-    ### Training specific
-    parser.add_argument('--n_epoch', dest='n_epoch', type=int,
-            help='Number of training epochs')
-    parser.add_argument('--batch_size', dest='batch_size', type=int,
-            help='Batch size.')
-    parser.add_argument('--cuda', dest='cuda', type=int,
-            help='cuda device number')
-
-    parser.add_argument('--feature', dest='feature',
-            help='Feature used for encoder.')
-    parser.add_argument('--save_dir', dest='save_dir',
-            help='name of the saving directory')
-    parser.add_argument('--flag_eval',dest='flag_eval',type=int,help='whether to compute graphon recon error') 
-
-    # General model param
-    parser.add_argument('--flag_emb',dest='flag_emb',type=int) 
-    parser.add_argument('--gnn_num_layer', dest='gnn_num_layer', type=int)
-
-    ### Model selection and sampling reconstruction number
-    #parser.add_argument('--add_perm',dest='add_perm',type=bool)
-    #parser.add_argument('--model_ind',dest='model_ind',type=int) #model number to select
-    parser.add_argument('--M',dest='M',type=int) #sampling number for graph reconstruction if needed
-
-    ### SIREN-MLP-model specific
-    parser.add_argument('--mlp_dim_hidden', dest='mlp_dim_hidden') #hidden dim (number of neurons) for f_theta
-    parser.add_argument('--emb_dim', dest='emb_dim', type=int)
-    parser.add_argument('--latent_dim', dest='latent_dim', type=int) #from graph embedding to latent embedding, reducing graph embedding dimension
-    parser.add_argument('--mlp_act', dest='mlp_act') # whether to use sine activation for the mlps
-
-    parser.add_argument('--gnn_type', dest='gnn_type') # to specify the type of encoder used
-    parser.add_argument('--gnn_layers', nargs='+', type=int, default=[8,8,8])
-    parser.add_argument('--gnn_layers_coords', nargs='+', type=int, default=[8,8,8])
-
-    parser.add_argument('--knn', type=int, default=5)
-
-    parser.set_defaults(dataset='2ratio_rand',
-                        feature='row_id',
-                        lr=0.01,
-                        n_epoch=12,
-                        batch_size=10,
-                        cuda=0,
-                        save_dir='00',
-                        step_size=4,
-                        gamma=0.1,
-                        gnn_num_layer=3,
-                        latent_dim=16,
-                        emb_dim=16,
-                        mlp_dim_hidden='48,36,24',
-                        mlp_act = 'sine',
-                        flag_emb=1,
-                        flag_eval=0,
-                        M=0)
-    return parser.parse_args()
-
 
 
 def main(prog_args):
 
-    prog_args.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    prog_args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(prog_args.device)
 
     ppath = os.getcwd()
@@ -331,290 +255,9 @@ def main(prog_args):
     print('saving path is:'+prog_args.save_path)
 
     # Load Specific Dataset
+    train_loader, test_loader, n_card = get_dataset(prog_args)
 
-    if prog_args.dataset in ['IMDB-B','IMDB-M']:   
-
-        with open(ppath+'/Data/'+prog_args.dataset+'.pkl','rb') as f:  
-            data = pickle.load(f)
-
-        G_data = data
-        n_sample = len(G_data[0])
-        print('total samples:'+str(n_sample))
-        G_train = G_data #G_data[:n_train] training on all data for unsupervised embedding
-        #G_test  = G_data
-        gtlabel = G_train[2]
-        train_dataset,_,n_card = rGraphData_tg2(G_train,prog_args.dataset,prog_args.feature) 
-        test_dataset = train_dataset # obtain unsupervised embedding on whole dataset
-
-    elif prog_args.dataset == 'protein_dataset_10':
-
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/protein_dataset_k_5_cignr_2630.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        G_data = data[0]
-        print(len(data))  # 6
-        n_sample = len(G_data) # 100
-        print(f"n_sample = {n_sample}") # 10
-        ################### TODO ##############
-        # Implement the rest of the dataloader for protein dataset.
-        # print(f"data = {data}")
-        n_train = round(n_sample*.9)
-        if np.mod(n_train,2)==1:
-            n_train = n_train +1
-
-        G_train = G_data[:n_train]
-        G_test  = G_data[n_train:]
-
-    
-        print('total samples:'+str(n_sample)+'  train samples:'+str(n_train))
-        train_dataset, _, n_card = GraphData_tg(G_train, features = prog_args.feature, add_perm=False, proteins=True)
-        # print(f"train_dataset : {train_dataset}")
-        test_dataset, _, n_card = GraphData_tg(G_test, features = prog_args.feature, add_perm=False, proteins=True)
-        
-    elif prog_args.dataset == 'protein_dataset_5':        
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/c-IGNR/Data/protein_dataset_k_5_frames_5.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        G_data = data[0]
-        print(len(data))  # 6
-        n_sample = len(G_data) # 100
-        print(f"n_sample = {n_sample}") # 10
-        ################### TODO ##############
-        # Implement the rest of the dataloader for protein dataset.
-        # print(f"data = {data}")
-        n_train = round(n_sample*.9)
-        if np.mod(n_train,2)==1:
-            n_train = n_train +1
-
-        G_train = G_data[:n_train]
-        G_test  = G_data[n_train:]
-    
-        print('total samples:'+str(n_sample)+'  train samples:'+str(n_train))
-        train_dataset, _, n_card = GraphData_tg(G_train, features = prog_args.feature, add_perm=False, proteins=True)
-        # print(f"train_dataset : {train_dataset}")
-        test_dataset, _, n_card = GraphData_tg(G_test, features = prog_args.feature, add_perm=False, proteins=True)
-
-    elif prog_args.dataset == 'protein_dataset_k_25_frames_5':
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/protein_dataset_k_25_frames_5.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        G_data = data[0]
-        print(len(data))  # 6
-        n_sample = len(G_data) # 100
-        print(f"n_sample = {n_sample}") # 10
-        ################### TODO ##############
-        # Implement the rest of the dataloader for protein dataset.
-        # print(f"data = {data}")
-        n_train = round(n_sample*.9)
-        if np.mod(n_train,2)==1:
-            n_train = n_train +1
-
-        G_train = G_data[:n_train]
-        G_test  = G_data[n_train:]
-    
-        print('total samples:'+str(n_sample)+'  train samples:'+str(n_train))
-        train_dataset, _, n_card = GraphData_tg(G_train, features = prog_args.feature, add_perm=False, proteins=True)
-        test_dataset, _, n_card = GraphData_tg(G_test, features = prog_args.feature, add_perm=False, proteins=True)
-
-    elif prog_args.dataset == 'protein_dataset_k_25_frames_5_random_connections':
-            with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/protein_dataset_k_25_frames_5_random_edges.pkl",'rb') as f:  
-                data = pickle.load(f)
-
-            G_data = data[0]
-            print(len(data))  # 6
-            n_sample = len(G_data) # 100
-            print(f"n_sample = {n_sample}") # 10
-            ################### TODO ##############
-            # Implement the rest of the dataloader for protein dataset.
-            # print(f"data = {data}")
-            n_train = round(n_sample*.9)
-            if np.mod(n_train,2)==1:
-                n_train = n_train +1
-
-            G_train = G_data[:n_train]
-            G_test  = G_data[n_train:]
-        
-            print('total samples:'+str(n_sample)+'  train samples:'+str(n_train))
-            train_dataset, _, n_card = GraphData_tg(G_train, features = prog_args.feature, add_perm=False, proteins=True)
-            test_dataset, _, n_card = GraphData_tg(G_test, features = prog_args.feature, add_perm=False, proteins=True)
-
-    elif prog_args.dataset == 'protein_dataset_k_25_frames_5_random_connections_ratio_0.2':
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/protein_dataset_k_25_frames_5_random_edges_ratio_0.2.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        G_data = data[0]
-        print(len(data))  # 6
-        n_sample = len(G_data) # 100
-        print(f"n_sample = {n_sample}") # 10
-        ################### TODO ##############
-        # Implement the rest of the dataloader for protein dataset.
-        # print(f"data = {data}")
-        n_train = round(n_sample*.9)
-        if np.mod(n_train,2)==1:
-            n_train = n_train +1
-
-        G_train = G_data[:n_train]
-        G_test  = G_data[n_train:]
-    
-        print('total samples:'+str(n_sample)+'  train samples:'+str(n_train))
-        train_dataset, _, n_card = GraphData_tg(G_train, features = prog_args.feature, add_perm=False, proteins=True)
-        test_dataset, _, n_card = GraphData_tg(G_test, features = prog_args.feature, add_perm=False, proteins=True)
-
-    elif prog_args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES':      
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/residues_protein_dataset_k_5_frames_5.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        n_card = 20
-        n_sample = len(data)
-        n_train = round(n_sample*.9)
-        print(f"n_sample = {n_sample}") 
-
-        train_dataset = data[:n_train]
-        test_dataset = data[n_train:]        
-        
-    elif prog_args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES':      
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/residues_protein_dataset_k_25_frames_5_coordinates_False.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        n_card = 20
-        n_sample = len(data)
-        n_train = round(n_sample*.9)
-        print(f"n_sample = {n_sample}") 
-
-        train_dataset = data[:n_train]
-        test_dataset = data[n_train:]    
-    
-    elif prog_args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES_COORDINATES':      
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/residues_protein_dataset_k_5_frames_5_coordinates_True.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        n_card = 23
-        n_sample = len(data)
-        n_train = round(n_sample*.9)
-        print(f"n_sample = {n_sample}") 
-
-        train_dataset = data[:n_train]
-        test_dataset = data[n_train:]    
-
-    elif prog_args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES_COORDINATES':
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/residues_protein_dataset_k_25_frames_5_coordinates_True.pkl",'rb') as f:
-            data = pickle.load(f)
-
-        n_card = 23
-        n_sample = len(data)
-        n_train = round(n_sample*.9)
-        print(f"n_sample = {n_sample}") 
-
-        train_dataset = data[:n_train]
-        test_dataset = data[n_train:]
-
-    elif prog_args.dataset == 'bbbp':
-        dataset = MoleculeNet(root='data/', name='BBBP')
-
-        train_idx, test_idx = train_test_split(range(len(dataset)), test_size=0.2, random_state=42)
-        train_dataset = [dataset[i] for i in train_idx]
-        test_dataset = [dataset[i] for i in test_idx]
-
-        #train_loader = DataLoader(train_set, batch_size=prog_args.batch_size)
-        #test_loader = DataLoader(test_set, batch_size=prog_args.batch_size)
-
-        atom_counts = [data.x.size(0) for data in dataset]
-
-        # Basic stats
-        max_atoms = max(atom_counts)
-
-        n_card = max_atoms
-
-    elif prog_args.dataset == 'd2r_knn_4':
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_4_dataset.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        n_card = 3
-        # First 2000 samples only for faster experiments
-        # data = data[:2000]
-
-        n_sample = len(data)
-
-        n_train = round(n_sample*.9)
-        print(f"n_sample = {n_sample}") 
-
-        train_dataset = data[:n_train]
-        test_dataset = data[n_train:]       
-        
-    elif prog_args.dataset == 'd2r_knn_20':
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_20_dataset.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        n_card = 3
-        # First 2000 samples only for faster experiments
-        # data = data[:2000]
-
-        n_sample = len(data)
-
-        n_train = round(n_sample*.9)
-        print(f"n_sample = {n_sample}") 
-
-        train_dataset = data[:n_train]
-        test_dataset = data[n_train:]      
-    
-    elif prog_args.dataset == 'd2r_knn_4_unaligned':
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_4_dataset_unaligned.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        n_card = 3
-        # First 2000 samples only for faster experiments
-        # data = data[:50]
-
-        n_sample = len(data)
-
-        n_train = round(n_sample*.9)
-        print(f"n_sample = {n_sample}") 
-
-        train_dataset = data[:n_train]
-        test_dataset = data[n_train:]  
-    
-    elif prog_args.dataset == "d2r_knn_20_unaligned":
-        with open("/Users/berfininal/Documents/ML-proteins/implicit_graphon/IGNR/IGNR/Data/d2r_knn_20_dataset_unaligned.pkl",'rb') as f:  
-            data = pickle.load(f)
-
-        n_card = 3
-        # First 2000 samples only for faster experiments
-        # data = data[:2000]
-
-        n_sample = len(data)
-
-        n_train = round(n_sample*.9)
-        print(f"n_sample = {n_sample}") 
-
-        train_dataset = data[:n_train]
-        test_dataset = data[n_train:]  
-
-    else: # For learning parameterized graphon on synthetic data
-
-        with open(ppath+'/Data/'+prog_args.dataset+'.pkl','rb') as f:  
-            data = pickle.load(f)
-
-        G_data = data[0]
-        labels = data[1]
-
-        n_sample = len(G_data)
-        n_train  = round(n_sample*.9)
-        if np.mod(n_train,2) == 1:
-            n_train = n_train+1
-        print('total samples:'+str(n_sample)+'  train samples:'+str(n_train))
-        G_train = G_data[:n_train]
-        G_test  = G_data[n_train:]
-        tlabel  = labels[n_train:] 
-
-        train_dataset,_,n_card = GraphData_tg(G_train, features=prog_args.feature, add_perm=True)
-        print(f"train_dataset : {train_dataset}")
-        test_dataset,_,n_card = GraphData_tg(G_test, features=prog_args.feature, add_perm=True)
-
-
-    print(prog_args.dataset)
-    train_loader = DataLoader(train_dataset, batch_size=prog_args.batch_size, shuffle=False) # Data is pre-shuffled by fixed seed
-    test_loader  = DataLoader(test_dataset, batch_size=prog_args.batch_size, shuffle=False) # For evaluating and saving all embeddings
-
+    print(f"Train set length : {len(train_loader.dataset)}")
 
     prog_args.step_size = len(train_loader)*prog_args.step_size     
     prog_args.mlp_dim_hidden = [int(x) for x in prog_args.mlp_dim_hidden.split(',')]
@@ -648,10 +291,7 @@ def main(prog_args):
 
     model = model.to(torch.device(prog_args.device))
 
-
     saved_path = train(prog_args, train_loader, model, test_loader)
-
-    # plot_eval(prog_args,model,train_dataset,9,'sample_train')
 
     if prog_args.flag_eval==1 and prog_args.dataset in ['gCircle', '2ratio_rand']:
         print('Evaluating Graphon Matching Loss')
@@ -663,7 +303,7 @@ def main(prog_args):
 
 if __name__ == '__main__':
 
-    gnn_types = ['gin', 'gconvgru'] # ['chebnet', 'gin', 'gconvgru'] # ['gconvgru', 'gconvlstm', 'chebnet'] #'gin',
+    gnn_types = ['chebnet', 'gin', 'gconvgru'] # ['chebnet', 'gin', 'gconvgru'] # ['gconvgru', 'gconvlstm', 'chebnet'] #'gin',
     latent_dims = [2, 4, 8, 16, 128]
 
     for gnn_type in gnn_types:
@@ -672,12 +312,10 @@ if __name__ == '__main__':
             prog_args.gnn_type = gnn_type
             prog_args.latent_dim = dim
 
-            # prog_args.dataset = 'protein_dataset_k_25_frames_5_random_connections_ratio_0.2'
             prog_args.dataset = 'd2r_knn_20'
-            #'protein_dataset_k_25_frames_5_random_connections' # protein_dataset_k_25_frames_5' # protein_dataset_k_25_frames_5_random_connections
-            prog_args.n_epoch = 3
+            prog_args.n_epoch = 1
             prog_args.emb_dim = 2
-            prog_args.batch_size = 10
+            prog_args.batch_size = 16
             prog_args.gnn_num_layer = 3
 
             if prog_args.dataset == 'protein_dataset_k_5_frames_5_RESIDUES' or prog_args.dataset == 'protein_dataset_k_25_frames_5_RESIDUES':
@@ -685,73 +323,25 @@ if __name__ == '__main__':
             elif prog_args.dataset == "protein_dataset_k_5_frames_5_RESIDUES_COORDINATES" or prog_args.dataset == "protein_dataset_k_25_frames_5_RESIDUES_COORDINATES":
                prog_args.gnn_layers = [23, 2, 2, dim]
             elif prog_args.dataset == "d2r_knn_4" or prog_args.dataset == "d2r_knn_20" or prog_args.dataset == "d2r_knn_4_unaligned" or prog_args.dataset == "d2r_knn_20_unaligned":
-                prog_args.gnn_layers = [3, 2, 2, dim]
+                prog_args.gnn_layers = [3, 8, 8, dim]
             
-
             prog_args.flag_emb = 0
             prog_args.knn = 20
 
-
-            prog_args.lr = 0.01 # 0.01
+            prog_args.lr = 1e-4
             print()
             print(f"Dataset : {prog_args.dataset}")
             print()
 
             saved_path, train_loader, test_loader, model = main(prog_args)
-
-
+            print(f"Saved path : {saved_path}")
 
             ############## Torch to PDB ############### 
-            N = 273
-            for batch_idx, data in enumerate(train_loader):
-                print(f"batch_idx = : {batch_idx}")
-                print(f"Data : {data}")
 
-                print(f"Data.shape : {data.x.shape}")
-                x = data.x.float().to(device)
-
-                print(f"x.shape : {x.shape}")
-
-                
-                edge_index = data.edge_index.to(torch.int64).to(device)
-                edge_index = edge_index.long()
-                batch = data.batch.to(torch.int64).to(device)
-
-                z_, node_representation = model.encode(x, edge_index, batch)
-                coords_pred = model.mlp_coords(node_representation.to(device))
-
-                save_ca_pdb(coords_pred[:N].cpu(), f"_predicted_pdbs/mse_train_sample_dataset_{prog_args.dataset}_{prog_args.gnn_type}_{prog_args.latent_dim}.pdb", chain_id = "A", start_resi = 1)
-
-                break             
-            
-            for batch_idx, data in enumerate(test_loader):
-                print(f"batch_idx = : {batch_idx}")
-                print(f"Data : {data}")
-
-                print(f"Data.shape : {data.x.shape}")
-                x = data.x.float().to(device)
-
-                print(f"x.shape : {x.shape}")
-
-                
-                edge_index = data.edge_index.to(torch.int64).to(device)
-                edge_index = edge_index.long()
-                batch = data.batch.to(torch.int64).to(device)
-
-                z_, node_representation = model.encode(x, edge_index, batch)
-                coords_pred = model.mlp_coords(node_representation.to(device))
-
-                save_ca_pdb(coords_pred[:N].cpu(), f"_predicted_pdbs/mse_test_sample_dataset_{prog_args.dataset}_{prog_args.gnn_type}_{prog_args.latent_dim}.pdb", chain_id = "A", start_resi = 1)
-
-                break 
+            # save_ca_pdb(train_loader, model, f"_predicted_pdbs/_mse_train_sample_dataset_{prog_args.dataset}_{prog_args.gnn_type}_{prog_args.latent_dim}.pdb", chain_id = "A", start_resi = 1)
+            # save_ca_pdb(test_loader, model, f"_predicted_pdbs/_mse_test_sample_dataset_{prog_args.dataset}_{prog_args.gnn_type}_{prog_args.latent_dim}.pdb", chain_id = "A", start_resi = 1)
 
             ###############################################
-
-            print(f"Saved path : {saved_path}")
-            """
-            for dim_red in ['pca', 'tsne']:
-                main_visualize(gnn_type, latent_dim=dim, path=saved_path, 
-                               gnn_layers=prog_args.gnn_layers, dim_reduction=dim_red,
-                               dataset=prog_args.dataset)
-            """
+            main_visualize(prog_args)
+            
             

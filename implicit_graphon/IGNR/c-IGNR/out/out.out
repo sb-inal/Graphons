@@ -1,0 +1,129 @@
+Lmod has detected the following error: The following module(s) are unknown:
+"CUDA/12.1"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "CUDA/12.1"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+Lmod has detected the following error: The following module(s) are unknown:
+"Anaconda3/2023.03"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "Anaconda3/2023.03"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+wandb: WARNING Unable to verify login in offline mode.
+wandb: Tracking run with wandb version 0.22.1
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /gpfs/home5/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/wandb/offline-run-20251007_103658-wk36rpn5
+/home/binal1/miniconda3/envs/env/lib/python3.10/site-packages/torch/functional.py:554: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at /pytorch/aten/src/ATen/native/TensorShape.cpp:4322.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+/gpfs/home5/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/utils.py:193: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+  score = torch.round(torch.tensor([score]), decimals = 3)
+/home/binal1/miniconda3/envs/env/lib/python3.10/site-packages/numpy/_core/fromnumeric.py:3904: RuntimeWarning: Mean of empty slice.
+  return _methods._mean(a, axis=axis, dtype=dtype,
+/home/binal1/miniconda3/envs/env/lib/python3.10/site-packages/numpy/_core/_methods.py:147: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+wandb: 
+wandb: Run history:
+wandb:       Test GW2 loss ▁
+wandb:   Training GW2 loss ▆▄█▇▅▃▅▂▂▃▄▃▆▄▂▅▅▃▄▃▃▃▃▅▂▁▄▃▄▄▂▃▆▃▂▂▅▃▃▂
+wandb: Training LDDT score ▁▁▂▃▃▄▄▆▅▆▇▆▇▇▇▇▇▇▇▇▇▇▇▇█████▇█████████▇
+wandb:   Training MSE loss ███▇▇▆▅▅▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:  Training TM-Score  ▁▁▃▄▄▅▅▆▆▆▆▇▇▇▇▇▇▇▇▇▇▇▇█████████████████
+wandb: Training Total loss █▆▄▃▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: 
+wandb: Run summary:
+wandb:       Test GW2 loss 12.232
+wandb:   Training GW2 loss 0.04348
+wandb: Training LDDT score 0.398
+wandb:   Training MSE loss 11.78192
+wandb:  Training TM-Score  0.597
+wandb: Training Total loss 11.8254
+wandb: 
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync /gpfs/home5/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/wandb/offline-run-20251007_103658-wk36rpn5
+wandb: Find logs at: ./wandb/offline-run-20251007_103658-wk36rpn5/logs
+wandb: Tracking run with wandb version 0.22.1
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /gpfs/home5/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/wandb/offline-run-20251007_120232-k7qslje9
+/home/binal1/miniconda3/envs/env/lib/python3.10/site-packages/numpy/_core/fromnumeric.py:3904: RuntimeWarning: Mean of empty slice.
+  return _methods._mean(a, axis=axis, dtype=dtype,
+/home/binal1/miniconda3/envs/env/lib/python3.10/site-packages/numpy/_core/_methods.py:147: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+wandb: 
+wandb: Run history:
+wandb:       Test GW2 loss ▁
+wandb:   Training GW2 loss █▆▅▃▃▁▁▂▂▂▁▂▂▂▁▂▁▁▁▂▁▁▂▁▁▁▁▁▂▁▁▁▁▁▁▁▁▂▂▁
+wandb: Training LDDT score ▁▂▄▄▄▄▄▅▅▆▆▆▆▆▆▇▇▇▇▇▇▇▇▇█▇▇█▇█▇▇▇▇██████
+wandb:   Training MSE loss █▆▅▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:  Training TM-Score  ▁▁▁▁▁▁▁▃▃▄▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇▇█▇███▇▇██████
+wandb: Training Total loss █▇▆▆▄▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: 
+wandb: Run summary:
+wandb:       Test GW2 loss 4.841
+wandb:   Training GW2 loss 0.04382
+wandb: Training LDDT score 0.53
+wandb:   Training MSE loss 3.56181
+wandb:  Training TM-Score  0.726
+wandb: Training Total loss 3.60563
+wandb: 
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync /gpfs/home5/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/wandb/offline-run-20251007_120232-k7qslje9
+wandb: Find logs at: ./wandb/offline-run-20251007_120232-k7qslje9/logs
+wandb: Tracking run with wandb version 0.22.1
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /gpfs/home5/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/wandb/offline-run-20251007_132924-488unl55
+/home/binal1/miniconda3/envs/env/lib/python3.10/site-packages/numpy/_core/fromnumeric.py:3904: RuntimeWarning: Mean of empty slice.
+  return _methods._mean(a, axis=axis, dtype=dtype,
+/home/binal1/miniconda3/envs/env/lib/python3.10/site-packages/numpy/_core/_methods.py:147: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+wandb: 
+wandb: Run history:
+wandb:       Test GW2 loss ▁
+wandb:   Training GW2 loss █▅▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: Training LDDT score ▁▁▂▂▃▃▃▃▄▄▅▅▆▆▆▆▆▆▆▆▇▇▇▇▇█▇▇████████████
+wandb:   Training MSE loss █▇▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:  Training TM-Score  ▁▁▁▁▂▄▅▅▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇▇▇████████████
+wandb: Training Total loss █▄▄▃▃▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: 
+wandb: Run summary:
+wandb:       Test GW2 loss 2.561
+wandb:   Training GW2 loss 0.04459
+wandb: Training LDDT score 0.673
+wandb:   Training MSE loss 1.81055
+wandb:  Training TM-Score  0.793
+wandb: Training Total loss 1.85513
+wandb: 
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync /gpfs/home5/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/wandb/offline-run-20251007_132924-488unl55
+wandb: Find logs at: ./wandb/offline-run-20251007_132924-488unl55/logs
+wandb: Tracking run with wandb version 0.22.1
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /gpfs/home5/binal1/Graphons/implicit_graphon/IGNR/c-IGNR/wandb/offline-run-20251007_145910-r02vzamb
+[2025-10-07T15:37:01.006] error: *** JOB 15170685 ON gcn144 CANCELLED AT 2025-10-07T15:37:01 DUE TO TIME LIMIT ***
+
+JOB STATISTICS
+==============
+Job ID: 15170685
+Cluster: snellius
+User/Group: binal1/binal1
+State: TIMEOUT (exit code 0)
+Nodes: 1
+Cores per node: 16
+CPU Utilized: 00:00:04
+CPU Efficiency: 0.00% of 3-08:08:16 core-walltime
+Job Wall-clock time: 05:00:31
+Memory Utilized: 5.82 GB
+Memory Efficiency: 18.20% of 32.00 GB (32.00 GB/node)
